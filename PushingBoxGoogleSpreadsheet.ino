@@ -1,78 +1,88 @@
 /*
-Derived from Yún HTTP Client Sketch
+UNO R4 WiFi version of PushingBox Google Spreadsheet example
+*/
 
- This example for the Arduino Yún shows how create a basic
- HTTP client that connects to the internet and downloads
- content. In this case, you'll connect to the Arduino
- website and download a version of the logo as ASCII text.
+#include <WiFiS3.h>
+#include <ArduinoHttpClient.h>
+#include "arduino_secrets.h"
 
- created by Tom igoe
- May 2013
+// Add your PushingBox Scenario DeviceID here
+const char devid[] = "v125962FAE5A95AC";
 
- This example code is in the public domain.
+const char serverName[] = "api.pushingbox.com";
+const int serverPort = 80;
 
- http://www.arduino.cc/en/Tutorial/HttpClient
+bool DEBUG = true;
 
- Additions added by Mary Loftus April 2018 
- - adapted from example by Tom DeBell - August 2017 - http://www.open-sensing.org/evaporometerblog/datalog
- */
+// Create WiFi + HTTP clients
+WiFiClient wifi;
+HttpClient client(wifi, serverName, serverPort);
 
+void connectWiFi()
+{
+  if (DEBUG) {
+    Serial.print("Connecting to ");
+    Serial.println(SECRET_SSID);
+  }
 
-  /////////////////
- // MODIFY HERE //
-/////////////////
+  int status = WiFi.begin(SECRET_SSID, SECRET_PASS);
 
-// Add your PushingBox Scenario DeviceID here:
-  char devid[] = "v963896FDE673C9F";
-  
-  //////////////
- //   End    //
-//////////////
+  while (status != WL_CONNECTED) {
+    delay(1000);
+    if (DEBUG) Serial.print(".");
+    status = WiFi.status();
+  }
 
-char serverName[] = "api.pushingbox.com";
-boolean DEBUG = true;
-#include <Bridge.h>
-#include <HttpClient.h>
+  if (DEBUG) {
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+}
 
 void setup() {
-  // Bridge takes about two seconds to start up
-  // it can be helpful to use the on-board LED
-  // as an indicator for when it has initialized
-  pinMode(13, OUTPUT);
-  digitalWrite(13, LOW);
-  Bridge.begin();
-  digitalWrite(13, HIGH);
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
   Serial.begin(9600);
-  while (!Serial); // wait for a serial connection
+  delay(2000);
+
+  connectWiFi();
+
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void loop() {
-  // Initialize the client library
-  HttpClient client;
 
-  //Setup sensorValue to read a value from Analog Port A0
-  int sensorValue = analogRead(A0);
-  
-  //Testing value - when sensor is not connected - comment out when sketch is shown to be working - and take value from A0 instead
-  //sensorValue=1500;
-
-  // Make a HTTP request:  
-  String APIRequest;
-  APIRequest = String(serverName) + "/pushingbox?devid=" + String(devid)+ "&IDtag=100&TimeStamp=50&TempC="+sensorValue;
-  client.get (APIRequest);
-  
-  // if there are incoming bytes available
-  // from the server, read them and print them:
-  while (client.available()) {
-    char c = client.read();
-
+  if (WiFi.status() != WL_CONNECTED) {
+    connectWiFi();
   }
-  Serial.flush();
-  String UploadMessage;
-  Serial.print("\n Uploaded temp value: ");
-  Serial.print(sensorValue);
+
+  int sensorValue = analogRead(A0);
+
+  String path = "/pushingbox?devid=" + String(devid) +
+                "&IDtag=100&TimeStamp=50&TempC=" + String(sensorValue);
+
+  if (DEBUG) {
+    Serial.print("Request: ");
+    Serial.println(path);
+  }
+
+  client.get(path);
+
+  int statusCode = client.responseStatusCode();
+  String response = client.responseBody();
+
+  if (DEBUG) {
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
+  }
+
+  Serial.print("Uploaded value: ");
+  Serial.println(sensorValue);
+
   delay(5000);
 }
-
-
